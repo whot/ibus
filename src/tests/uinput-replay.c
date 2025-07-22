@@ -255,10 +255,10 @@ ibus_uidev_write_event_array (struct libevdev_uinput *uidev,
     interval = array[1] - prev_time;
     prev_time = array[1];
     if (interval > 0) {
-        g_debug ("usleep %u\n", interval);
+        g_debug ("usleep %u", interval);
         usleep(interval);
     }
-    g_debug ("write uinput(%u, %u, %u, %u, %u)\n",
+    g_debug ("write uinput(%u, %u, %u, %u, %u)",
              array[0], array[1], array[2], array[3], array[4]);
     retval = libevdev_uinput_write_event (uidev, array[2], array[3], array[4]);
     if (retval) {
