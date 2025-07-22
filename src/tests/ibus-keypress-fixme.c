@@ -13,8 +13,6 @@
 #define NC    "\033[0m"
 
 typedef enum {
-    TEST_END_KEYPRESS,
-    TEST_PROCESS_KEY_EVENT,
     TEST_COMMIT_TEXT,
     TEST_CREATE_ENGINE,
     TEST_DELAYED_FOCUS_IN
@@ -39,14 +37,12 @@ static const gunichar test_results[][60] = {
 };
 
 
-static gchar *m_tmpfile_end;
 static const gchar *m_arg0;
 static gchar *m_session_name;
 static IBusBus *m_bus;
 static IBusEngine *m_engine;
 static GMainLoop *m_loop;
 static char *m_engine_is_focused;
-static guint m_process_key_id;
 #if GTK_CHECK_VERSION (4, 0, 0)
 //static gboolean m_list_toplevel;
 
@@ -92,32 +88,6 @@ idle_cb (gpointer user_data)
 
     g_assert (data);
     switch (data->category) {
-    case TEST_END_KEYPRESS:
-        if (g_access (m_tmpfile_end, 0) != -1) {
-            data->idle_id = 0;
-            n = 0;
-            g_unlink (m_tmpfile_end);
-            g_main_loop_quit (m_loop);
-            fprintf (stderr, "Finished keypress\n");
-            return G_SOURCE_REMOVE;
-        }
-        if (n++ < 600) {
-            if (!(n % 30))
-                g_test_message ("Waiting for finishing keypress %dth times", n);
-            return G_SOURCE_CONTINUE;
-        }
-        g_test_fail_printf ("Finishing keypress is timeout.");
-        g_main_loop_quit (m_loop);
-        break;
-    case TEST_PROCESS_KEY_EVENT:
-        if (n++ < 30000) {
-            if (!(n % 10))
-                fprintf (stderr, "Waiting for process_key_event %dth times\n", n);
-            return G_SOURCE_CONTINUE;
-        }
-        fprintf (stderr, "process_key_event is timeout.\n");
-        g_main_loop_quit (m_loop);
-        break;
     case TEST_CREATE_ENGINE:
         g_test_fail_printf ("\"create-engine\" signal is timeout.");
         break;
@@ -331,9 +301,6 @@ exec_keypress (void)
 #endif
 
     g_free (build_dir);
-
-    fd = g_creat (m_tmpfile_end, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    g_close (fd, &error);
 }
 
 
@@ -401,15 +368,6 @@ set_engine_cb (GObject      *object,
      * simply create and run this here this here. */
     g_info("running uinput now");
     exec_keypress();
-
-    data.category = TEST_END_KEYPRESS;
-    data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
-    g_main_loop_run (m_loop);
-    if (data.idle_id != 0)
-        return;
-    data.category = TEST_PROCESS_KEY_EVENT;
-    m_process_key_id = data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
-    g_main_loop_run (m_loop);
 #endif
 }
 
@@ -524,11 +482,6 @@ window_inserted_text_cb (GtkEntryBuffer *buffer,
 #endif
     if (!test_results[i][j]) {
        g_assert (!j);
-       if (m_process_key_id) {
-           g_source_remove (m_process_key_id);
-           m_process_key_id = 0;
-           g_main_loop_quit (m_loop);
-       }
        ibus_quit ();
     }
 }
@@ -613,17 +566,6 @@ main (int argc, char *argv[])
     GError *error = NULL;
 
     setlocale (LC_ALL, "");
-
-    m_tmpfile_end = g_strdup ("/tmp/ibus-keypress_end_XXXXXX.log");
-    errno = 0;
-    if ((fd = g_mkstemp (m_tmpfile_end)) == -1) {
-        /* g_warning() before g_test_init() */
-        g_warning ("mkstemp is failed: %s", g_strerror (errno));
-        g_unlink (m_tmpfile_end);
-        exit (EXIT_FAILURE);
-    }
-    g_close (fd, &error);
-    g_unlink (m_tmpfile_end);
 
     m_arg0 = argv[0];
 
