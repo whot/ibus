@@ -17,6 +17,12 @@
 
 #define msleep(t) usleep((t) * 1000)
 
+struct uinput_replay_device
+{
+    struct libevdev_uinput *uidev;
+    char *contents;
+};
+
 static gchar *
 get_case_contents (const gchar *case_path)
 {
@@ -300,6 +306,47 @@ ibus_uidev_replay_with_yaml_data (struct libevdev_uinput *uidev,
     }
 }
 
+struct uinput_replay_device *
+uinput_replay_create_device(const char *recording, GError **error)
+{
+    gchar *contents;
+    struct libevdev_uinput *uidev;
+    struct uinput_replay_device *dev;
+
+    g_return_val_if_fail (recording != NULL, NULL);
+
+    if (!(contents = get_case_contents (recording))) {
+        /* FIXME: proper GError reporting, I guess */
+        return NULL;
+    }
+    if (!(uidev = ibus_uidev_new ())) {
+        g_free (contents);
+        /* FIXME: proper GError reporting, I guess */
+        return NULL;
+    }
+
+    dev = g_new0 (struct uinput_replay_device, 1);
+    dev->uidev = uidev;
+    dev->contents = contents;
+
+    return dev;
+}
+
+void
+uinput_replay_device_replay(struct uinput_replay_device *dev)
+{
+    ibus_uidev_replay_with_yaml_data (dev->uidev, dev->contents);
+}
+
+void
+uinput_replay_device_destroy(struct uinput_replay_device *dev)
+{
+    g_free (dev->contents);
+    libevdev_uinput_destroy (dev->uidev);
+    g_free (dev->contents);
+}
+
+#if 0
 int
 main (int argc, char *argv[]) {
     gchar *contents;
@@ -329,3 +376,4 @@ main (int argc, char *argv[]) {
 
     return EXIT_SUCCESS;
 }
+#endif

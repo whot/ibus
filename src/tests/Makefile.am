@@ -80,7 +80,6 @@ TESTS_C += ibus-keypress
 noinst_PROGRAMS += \
     ibus-keypress-fixme \
     testwindow \
-    uinput-replay \
     $(NULL)
 noinst_SCRIPTS += \
     ibus-build-sudoers \
@@ -141,13 +140,11 @@ if ENABLE_LIBUDEV
 test_execs_PROGRAMS += \
     testwindow \
     ibus-keypress-fixme \
-    uinput-replay \
     $(NULL)
 test_execs += \
     testwindow \
     ibus-keypress-fixme \
     uinput-replay-test.sh \
-    uinput-replay \
     $(NULL)
 test_execs_SCRIPTS += uinput-replay-test.sh
 sudo_DATA= ibus-sudoers
@@ -207,7 +204,7 @@ ibus-sudoers: ibus-sudoers.conf.in
 	$(NULL)
 
 # SUDO file should not have the file extension.
-ibus-build-sudoers: ibus-sudoers.conf.in uinput-replay
+ibus-build-sudoers: ibus-sudoers.conf.in
 	USER=$(shell $(builddir)/uinput-replay --username); \
 	sed -e "s|@USER[@]|$$USER|g" \
 	    -e "s|@test_execsdir[@]|$(test_execsdir)|g" \
@@ -290,10 +287,9 @@ ibus_keynames_LDADD = $(prog_ldadd)
 ibus_keypress_SOURCES = ibus-keypress.c
 ibus_keypress_LDADD = $(prog_ldadd)
 testwindow_SOURCES = testwindow.c
-uinput_replay_SOURCES = uinput-replay.c
-uinput_replay_CFLAGS = @GLIB2_CFLAGS@ @LIBEVDEV_CFLAGS@ @LIBUDEV_CFLAGS@
-uinput_replay_LDADD = @GLIB2_LIBS@ @LIBEVDEV_LIBS@ @LIBUDEV_LIBS@
 ibus_keypress_fixme_SOURCES = ibus-keypress-fixme.c
+ibus_keypress_fixme_CFLAGS = @GLIB2_CFLAGS@ @LIBEVDEV_CFLAGS@ @LIBUDEV_CFLAGS@
+ibus_keypress_fixme_LDADD = @GLIB2_LIBS@ @LIBEVDEV_LIBS@ @LIBUDEV_LIBS@
 if ENABLE_GTK4
 testwindow_CFLAGS = @GTK4_CFLAGS@
 testwindow_LDADD = $(prog_ldadd) @GTK4_LIBS@
