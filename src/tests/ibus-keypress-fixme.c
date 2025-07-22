@@ -43,6 +43,7 @@ static IBusBus *m_bus;
 static IBusEngine *m_engine;
 static GMainLoop *m_loop;
 static char *m_engine_is_focused;
+static struct uinput_replay_device *m_replay;
 #if GTK_CHECK_VERSION (4, 0, 0)
 //static gboolean m_list_toplevel;
 
@@ -248,62 +249,6 @@ window_destroy_cb (void)
     ibus_quit ();
 }
 
-
-static void
-exec_keypress (void)
-{
-    gchar *build_dir;
-    gchar *keypress_path = NULL;
-    gchar *standard_output = NULL;
-    gchar *standard_error = NULL;
-    gint wait_status = 0;
-    GError *error = NULL;
-    int fd;
-
-    g_assert (m_arg0);
-    build_dir = g_path_get_dirname (m_arg0);
-    if (g_str_has_suffix (build_dir, "/.libs"))
-        *(build_dir + strlen (build_dir) - 6) = '\0';
-
-    // FIXME: fix the lookup ath
-    char *recording = g_build_filename (build_dir, "libinput-test.yml", NULL);
-    struct uinput_replay_device *replay = uinput_replay_create_device(recording, NULL);
-    g_free(recording);
-
-    if (!replay) {
-        g_warning ("Failed to create uinput device");
-        return;
-    }
-
-    uinput_replay_device_replay(replay);
-
-#if 0
-    keypress_path = g_build_filename (build_dir, "uinput-replay-test.sh", NULL);
-    g_spawn_command_line_sync (keypress_path,
-                               &standard_output,
-                               &standard_error,
-                               &wait_status,
-                               &error);
-    if (standard_output) {
-        g_test_message ("keypress output: %s", standard_output);
-        g_free (standard_output);
-    }
-    if (standard_error) {
-        if (*standard_error)
-            g_test_message ("keypress error: %s", standard_error);
-        g_free (standard_error);
-    }
-    if (error) {
-        g_test_message ("keypress error2: %s", error->message);
-        g_error_free (error);
-    }
-    g_free (keypress_path);
-#endif
-
-    g_free (build_dir);
-}
-
-
 static void
 set_engine_cb (GObject      *object,
                GAsyncResult *res,
@@ -367,7 +312,7 @@ set_engine_cb (GObject      *object,
     /* Because uinput doesn't take that long (for our recordings anyway) we can
      * simply create and run this here this here. */
     g_info("running uinput now");
-    exec_keypress();
+    uinput_replay_device_replay(m_replay);
 #endif
 }
 
@@ -546,15 +491,35 @@ test_init (void)
     g_main_loop_unref (loop);
 }
 
-
 static void
 test_keypress (void)
 {
+    gchar *build_dir;
+    char *recording;
+
     if (!register_ibus_engine ())
         return;
 
+    g_assert (m_arg0);
+    build_dir = g_path_get_dirname (m_arg0);
+    if (g_str_has_suffix (build_dir, "/.libs"))
+        *(build_dir + strlen (build_dir) - 6) = '\0';
+
+    // FIXME: fix the lookup path
+    recording = g_build_filename (build_dir, "libinput-test.yml", NULL);
+    g_free (build_dir);
+    m_replay = uinput_replay_create_device(recording, NULL);
+    g_free(recording);
+
+    if (!m_replay) {
+        g_warning ("Failed to create uinput device");
+        return;
+    }
+
     create_window ();
     ibus_main ();
+
+    uinput_replay_device_destroy(m_replay);
     g_clear_pointer (&m_session_name, g_free);
 }
 
