@@ -413,6 +413,10 @@ set_engine_cb (GObject      *object,
         return;
     }
 
+    /* FIXME: this bit is now effectively useless, the timeout isn't called
+     * for at least 1 second but by then we've probably finished replaying
+     * our uinput device and moved to TEST_PROCESS_KEY_EVENT */
+
     /* See ibus-compose:set_engine_cb() */
     if (is_integrated_desktop () && g_getenv ("IBUS_DAEMON_WITH_SYSTEMD")) {
         g_test_message ("Start tiny \"focus-in\" signal test");
