@@ -287,7 +287,7 @@ ibus_keynames_LDADD = $(prog_ldadd)
 ibus_keypress_SOURCES = ibus-keypress.c
 ibus_keypress_LDADD = $(prog_ldadd)
 testwindow_SOURCES = testwindow.c
-ibus_keypress_fixme_SOURCES = ibus-keypress-fixme.c
+ibus_keypress_fixme_SOURCES = ibus-keypress-fixme.c uinput-replay.c
 ibus_keypress_fixme_CFLAGS = @GLIB2_CFLAGS@ @LIBEVDEV_CFLAGS@ @LIBUDEV_CFLAGS@
 ibus_keypress_fixme_LDADD = @GLIB2_LIBS@ @LIBEVDEV_LIBS@ @LIBUDEV_LIBS@
 if ENABLE_GTK4
@@ -299,8 +299,8 @@ testwindow_CFLAGS = @GTK3_CFLAGS@
 testwindow_LDADD = $(prog_ldadd) @GTK3_LIBS@
 endif
 endif
-ibus_keypress_fixme_CFLAGS = $(testwindow_CFLAGS)
-ibus_keypress_fixme_LDADD = $(testwindow_LDADD)
+ibus_keypress_fixme_CFLAGS += $(testwindow_CFLAGS)
+ibus_keypress_fixme_LDADD += $(testwindow_LDADD)
 
 ibus_keyval_SOURCES = ibus-keyval.c
 ibus_keyval_CFLAGS = @GTK4_CFLAGS@

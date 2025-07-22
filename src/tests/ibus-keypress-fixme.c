@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include "uinput-replay.h"
+
 #define GREEN "\033[0;32m"
 #define RED   "\033[0;31m"
 #define NC    "\033[0m"
@@ -334,10 +336,25 @@ exec_keypress (void)
     g_main_loop_unref (m_loop);
     if (data.idle_id != 0)
         return;
+
     g_assert (m_arg0);
     build_dir = g_path_get_dirname (m_arg0);
     if (g_str_has_suffix (build_dir, "/.libs"))
         *(build_dir + strlen (build_dir) - 6) = '\0';
+
+    // FIXME: fix the lookup ath
+    char *recording = g_build_filename (build_dir, "libinput-test.yml", NULL);
+    struct uinput_replay_device *replay = uinput_replay_create_device(recording, NULL);
+    g_free(recording);
+
+    if (!replay) {
+        g_warning ("Failed to create uinput device");
+        return;
+    }
+
+    uinput_replay_device_replay(replay);
+
+#if 0
     keypress_path = g_build_filename (build_dir, "uinput-replay-test.sh", NULL);
     g_spawn_command_line_sync (keypress_path,
                                &standard_output,
@@ -358,6 +375,8 @@ exec_keypress (void)
         g_error_free (error);
     }
     g_free (keypress_path);
+#endif
+
     g_free (build_dir);
 
     fd = g_creat (m_tmpfile_end, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
