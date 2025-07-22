@@ -683,7 +683,7 @@ main (int argc, char *argv[])
 
     g_test_add_func ("/ibus-keypress/test-init", test_init);
     m_loop = g_main_loop_new (NULL, TRUE);
-    g_test_add_func ("/ibus-keypress/keyrepss", test_keypress);
+    g_test_add_func ("/ibus-keypress/keypress", test_keypress);
 
     return g_test_run ();
 }
