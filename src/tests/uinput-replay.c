@@ -358,7 +358,7 @@ ibus_uidev_replay_with_yaml_data (struct libevdev_uinput *uidev,
         while (*end != '\n' && *end != '\0') ++end;
         if (*head == '#') {
             head = end;
-            if (*head != '\0')
+            if (*head != '\n' && *head != '\0')
                 ++head;
             continue;
         }
