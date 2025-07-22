@@ -343,7 +343,7 @@ uinput_replay_device_destroy(struct uinput_replay_device *dev)
 {
     g_free (dev->contents);
     libevdev_uinput_destroy (dev->uidev);
-    g_free (dev->contents);
+    g_free (dev);
 }
 
 #if 0
