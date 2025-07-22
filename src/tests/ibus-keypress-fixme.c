@@ -645,7 +645,7 @@ test_keypress (void)
     if (!register_ibus_engine ())
         return;
 
-    m_replay = uinput_replay_create_keyboard( NULL);
+    m_replay = uinput_replay_create_keyboard(NULL);
 
     if (!m_replay) {
         g_warning ("Failed to create uinput device");
