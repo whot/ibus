@@ -510,7 +510,7 @@ event_controller_enter_cb (GtkEventController *controller,
         return;
     /* See ibus-compose:event_controller_enter_cb() */
     if (is_integrated_desktop ()) {
-        id = g_timeout_add_seconds (3,
+        id = g_timeout_add_seconds (1,
                                     event_controller_enter_delay,
                                     controller);
     } else {
