@@ -75,6 +75,7 @@ endif
 if ENABLE_GTK3_OR_4
 TESTS_C += ibus-compose
 if ENABLE_LIBEVDEV
+if ENABLE_LIBUDEV
 TESTS_C += ibus-keypress
 noinst_PROGRAMS += \
     ibus-keypress-fixme \
@@ -90,6 +91,7 @@ CLEANFILES += \
     ibus-build-sudoers \
     uinput-replay-test.sh \
     $(NULL)
+endif
 endif
 endif
 
@@ -135,6 +137,7 @@ test_execs_PROGRAMS = $(TESTS_C)
 test_execs_SCRIPTS = $(TESTS_SCRIPT)
 if ENABLE_GTK3_OR_4
 if ENABLE_LIBEVDEV
+if ENABLE_LIBUDEV
 test_execs_PROGRAMS += \
     testwindow \
     ibus-keypress-fixme \
@@ -149,6 +152,7 @@ test_execs += \
 test_execs_SCRIPTS += uinput-replay-test.sh
 sudo_DATA= ibus-sudoers
 sudodir = /etc/sudoers.d
+endif
 endif
 test_execs_SCRIPTS += ibus-compose-locales
 CLEANFILES += ibus-compose-locales
@@ -287,8 +291,8 @@ ibus_keypress_SOURCES = ibus-keypress.c
 ibus_keypress_LDADD = $(prog_ldadd)
 testwindow_SOURCES = testwindow.c
 uinput_replay_SOURCES = uinput-replay.c
-uinput_replay_CFLAGS = @GLIB2_CFLAGS@ @LIBEVDEV_CFLAGS@
-uinput_replay_LDADD = @GLIB2_LIBS@ @LIBEVDEV_LIBS@
+uinput_replay_CFLAGS = @GLIB2_CFLAGS@ @LIBEVDEV_CFLAGS@ @LIBUDEV_CFLAGS@
+uinput_replay_LDADD = @GLIB2_LIBS@ @LIBEVDEV_LIBS@ @LIBUDEV_LIBS@
 ibus_keypress_fixme_SOURCES = ibus-keypress-fixme.c
 if ENABLE_GTK4
 testwindow_CFLAGS = @GTK4_CFLAGS@

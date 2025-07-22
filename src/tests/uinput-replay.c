@@ -8,45 +8,14 @@
 #include <linux/input-event-codes.h>
 #include <libevdev/libevdev.h>
 #include <libevdev/libevdev-uinput.h>
+#include <libudev.h>
 
-#ifdef LIBSYSTEMD_SHARED
-/* Needs a private library libsystemd-shared-257.7-1.fc42.so
- * uinput_replay_LDADD = -L$(libdir)/systemd -lsystemd-shared-257.7-1.fc42
- * uinput_replay_LDFLAGS = -Wl,-rpath,$(libdir)/systemd
- */
-#include <systemd/sd-device.h>
-#include <systemd/sd-event.h>
-#endif /* end of LIBSYSTEMD_SHARED */
-
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #define msleep(t) usleep((t) * 1000)
-
-#ifdef LIBSYSTEMD_SHARED
-#define STRNA(s) (s)?: "N/A"
-
-/* systemd/src/libsystemd/sd-device/device-monitor-private.h */
-typedef enum MonitorNetlinkGroup {
-        MONITOR_GROUP_NONE,
-        MONITOR_GROUP_KERNEL,
-        MONITOR_GROUP_UDEV,
-        _MONITOR_NETLINK_GROUP_MAX,
-        _MONITOR_NETLINK_GROUP_INVALID = -EINVAL,
-} MonitorNetlinkGroup;
-
-extern int device_monitor_new_full (sd_device_monitor **ret,
-                                    MonitorNetlinkGroup group,
-                                    int                 fd);
-
-/* systemd/src/libsystemd/sd-device/device-private.c:
- * DEFINE_STRING_TABLE_LOOKUP() in %{libdir}/systemd/libsystemd-shared*.so
- */
-extern const char* device_action_to_string (sd_device_action_t i);
-
-static pid_t m_pid_udev_monitor;
-#endif /* end of LIBSYSTEMD_SHARED */
 
 static gchar *
 get_case_contents (const gchar *case_path)
@@ -65,93 +34,80 @@ get_case_contents (const gchar *case_path)
     return contents;
 }
 
-
-#ifdef LIBSYSTEMD_SHARED
-static int
-device_monitor_handler (sd_device_monitor *monitor,
-                        sd_device         *device,
-                        void              *userdata)
+static struct udev_monitor *
+udev_setup_monitor(void)
 {
-    sd_event *event = (sd_event *)userdata;
-    sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
-    const char *devpath = NULL, *subsystem = NULL;
+	struct udev *udev;
+	struct udev_monitor *udev_monitor;
+	int rc;
 
-    sd_device_get_action (device, &action);
-    sd_device_get_devpath (device, &devpath);
-    sd_device_get_subsystem (device, &subsystem);
-
-    g_message ("%-8s %s (%s)",
-               STRNA (device_action_to_string (action)),
-               devpath, subsystem);
-    if (g_str_has_prefix (STRNA (device_action_to_string (action)), "add") &&
-        g_str_has_prefix (g_path_get_basename (devpath), "event") &&
-        !g_strcmp0 (subsystem, "input")) {
-        sd_event_exit (event, 0);
+	udev = udev_new ();
+	if (!udev) {
+        g_warning ("Failed to create udev context");
+        return NULL;
     }
-    return 0;
+	udev_monitor = udev_monitor_new_from_netlink (udev, "udev");
+	if (!udev_monitor) {
+        g_warning ("Failed to create udev context");
+        goto out;
+    }
+	udev_monitor_filter_add_match_subsystem_devtype (udev_monitor, "input", NULL);
+
+	/* remove O_NONBLOCK */
+	rc = fcntl (udev_monitor_get_fd (udev_monitor), F_SETFL, 0);
+	if (rc == -1) {
+        g_warning ("Failed to remove O_NONBLOCK on udev monitor: %s", strerror (errno));
+        goto out;
+    }
+	rc = udev_monitor_enable_receiving (udev_monitor);
+    if (rc < 0) {
+        g_warning ("Failed enable receiving on udev monitor: %s", strerror (-rc));
+        goto out;
+    }
+
+    return udev_monitor;
+
+out:
+    if (udev_monitor) {
+        udev_monitor_unref (udev_monitor);
+    }
+	udev_unref(udev);
+
+	return NULL;
 }
 
-
-static int
-setup_monitor (MonitorNetlinkGroup sender,
-               sd_event           *event,
-               sd_device_monitor **ret) {
-    sd_device_monitor *monitor = NULL;
-
-    if (device_monitor_new_full (&monitor, sender, -1) < 0) {
-        g_warning ("Failed to create netlink socket: %s", g_strerror (errno));
-        return -1;
-    }
-    if (sd_device_monitor_attach_event (monitor, event) < 0) {
-        g_warning ("Failed to attach event: %s", g_strerror (errno));
-        return -1;
-    }
-    if (sd_device_monitor_start (monitor, device_monitor_handler, event) < 0) {
-        g_warning ("Failed to attach event: %s", g_strerror (errno));
-        return -1;
-    }
-    *ret = monitor;
-    monitor = NULL;
-    return 0;
-}
-
-
-/* Refer systemd/src/udev/udevadm-monitor.c */
-static gboolean
-setup_udev_monitor (void)
+static struct udev_device *
+udev_wait_for_device_event(struct udev_monitor *udev_monitor,
+                           const char *udev_event,
+                           const char *syspath)
 {
-    sd_device_monitor *udev_monitor = NULL;
-    sd_event *event = NULL;
+	struct udev_device *udev_device = NULL;
 
-    errno = 0;
-    if (sd_event_default(&event) < 0) {
-        g_warning ("Failed to initialize sd_event: %s", g_strerror (errno));
-        sd_event_unrefp (&event);
-        return FALSE;
-    }
-    if (sd_event_set_signal_exit (event, TRUE) < 0) {
-        g_warning ("Failed to install SIGINT/SIGTERM handling: %s",
-                   g_strerror (errno));
-        sd_event_unrefp (&event);
-        return FALSE;
-    }
-    if (setup_monitor (MONITOR_GROUP_UDEV, event, &udev_monitor) < 0) {
-        g_warning ("Failed to udev monitor: %s",
-                   g_strerror (errno));
-        sd_event_unrefp (&event);
-        return FALSE;
-    }
-    if (sd_event_loop (event) < 0) {
-        g_warning ("Failed to run udev event: %s", g_strerror (errno));
-        sd_device_monitor_unrefp (&udev_monitor);
-        sd_event_unrefp (&event);
-        return FALSE;
-    }
-    sd_device_monitor_unrefp (&udev_monitor);
-    sd_event_unrefp (&event);
-    return TRUE;
+	/* blocking, we don't want to continue until udev is ready */
+	while (1) {
+		const char *udev_syspath = NULL;
+		const char *udev_action;
+
+		udev_device = udev_monitor_receive_device (udev_monitor);
+		if (!udev_device) {
+		    g_warning ("Failed to receive device");
+		    return NULL;
+        }
+		udev_action = udev_device_get_action (udev_device);
+		if (!udev_action || !g_str_equal (udev_action, udev_event)) {
+			udev_device_unref (udev_device);
+			continue;
+		}
+
+		udev_syspath = udev_device_get_syspath (udev_device);
+		if (udev_syspath && g_str_has_prefix (udev_syspath, syspath))
+			break;
+
+		udev_device_unref (udev_device);
+	}
+
+	return udev_device;
 }
-#endif /* end of LIBSYSTEMD_SHARED */
 
 
 static struct libevdev_uinput *
@@ -161,16 +117,10 @@ ibus_uidev_new (void)
     unsigned int code;
     struct libevdev_uinput *uidev = NULL;
     int retval;
-    const char *syspath;
-    const char *devnode;
-    struct stat buf;
-    struct group *grp = NULL;
+    char *syspath;
+    struct udev_monitor *udev_monitor = NULL;
 
-#ifdef LIBSYSTEMD_SHARED
-    if (!(m_pid_udev_monitor = fork ())) {
-        exit (!setup_udev_monitor ());
-    }
-#endif
+    udev_monitor = udev_setup_monitor();
     libevdev_set_name (dev, "ibusdev");
     /* serial makes it an internal keyboard */
     libevdev_set_id_bustype (dev, BUS_I8042);
@@ -186,36 +136,13 @@ ibus_uidev_new (void)
 
     if (retval) {
         g_warning ("Failed to create uinput: %s\n", g_strerror (-retval));
+        udev_monitor_unref (udev_monitor);
         return NULL;
     }
 
-    syspath = libevdev_uinput_get_syspath (uidev);
-    g_assert (syspath != NULL);
-    devnode = libevdev_uinput_get_devnode (uidev);
-    g_assert (devnode != NULL);
-
-    /* You need to wait here until the device actually exists, either via a
-     * sleep or checking udev until the device shows up. Use
-     * libevdev_uinput_get_syspath() for the latter
-     */
-    errno = 0;
-    do {
-        msleep (10);
-        if (stat (devnode, &buf)) {
-            g_warning ("Failed to get stat of %s: %s\n",
-                       devnode, g_strerror (errno));
-            libevdev_uinput_destroy (uidev);
-            return NULL;
-        }
-        if (!(grp = getgrgid (buf.st_gid))) {
-            g_warning ("Failed to get gid of %s: %s\n",
-                       devnode, g_strerror (errno));
-            libevdev_uinput_destroy (uidev);
-            return NULL;
-        }
-        g_debug ("gr_name %s", grp->gr_name);
-    } while (strcmp (grp->gr_name, "input"));
-    msleep (100);
+    syspath = g_strdup_printf("%s/event", libevdev_uinput_get_syspath (uidev));
+    udev_wait_for_device_event (udev_monitor, "add", syspath);
+    g_free (syspath);
 
     return uidev;
 }

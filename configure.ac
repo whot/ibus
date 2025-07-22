@@ -742,6 +742,13 @@ PKG_CHECK_MODULES(LIBEVDEV,
 )
 AM_CONDITIONAL([ENABLE_LIBEVDEV], [test x"$enable_libevdev" = x"yes"])
 
+PKG_CHECK_MODULES(LIBUDEV,
+    [libudev],
+    [enable_libudev=yes],
+    [enable_libudev=no]
+)
+AM_CONDITIONAL([ENABLE_LIBUDEV], [test x"$enable_libudev" = x"yes"])
+
 PKG_CHECK_MODULES(XFIXES,
     [x11 xfixes >= 6],
     [AC_DEFINE([HAVE_XFIXES], [1], [Define to enable XFixes])
