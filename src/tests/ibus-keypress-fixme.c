@@ -660,6 +660,29 @@ test_keypress (void)
 }
 
 
+static void
+test_keypress_from_recording (void)
+{
+    const char *recording = getenv("IBUS_KEY_RECORDING");
+
+    if (!register_ibus_engine ())
+        return;
+
+    g_return_if_fail(recording);
+
+    m_replay = uinput_replay_create_device(recording, NULL);
+    if (!m_replay) {
+        g_warning ("Failed to create uinput device");
+        return;
+    }
+
+    create_window ();
+    ibus_main ();
+
+    uinput_replay_device_destroy(m_replay);
+    g_clear_pointer (&m_session_name, g_free);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -683,7 +706,10 @@ main (int argc, char *argv[])
 
     g_test_add_func ("/ibus-keypress/test-init", test_init);
     m_loop = g_main_loop_new (NULL, TRUE);
-    g_test_add_func ("/ibus-keypress/keypress", test_keypress);
+    if (getenv("IBUS_KEY_RECORDING"))
+	g_test_add_func ("/ibus-keypress/keypress_from_recording", test_keypress_from_recording);
+    else
+	g_test_add_func ("/ibus-keypress/keypress", test_keypress);
 
     return g_test_run ();
 }
