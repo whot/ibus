@@ -579,7 +579,7 @@ window_inserted_text_cb (GtkEntryBuffer *buffer,
     }
 }
 
-static void
+static GtkWidget *
 create_window ()
 {
     GtkWidget *window;
@@ -615,6 +615,8 @@ create_window ()
     gtk_container_add (GTK_CONTAINER (window), entry);
     gtk_widget_show_all (window);
 #endif
+
+    return window;
 }
 
 
@@ -642,6 +644,8 @@ test_init (void)
 static void
 test_keypress (void)
 {
+    GtkWidget *window;
+
     if (!register_ibus_engine ())
         return;
 
@@ -652,17 +656,19 @@ test_keypress (void)
         return;
     }
 
-    create_window ();
+    window = create_window ();
     ibus_main ();
 
-    uinput_replay_device_destroy(m_replay);
+    uinput_replay_device_destroy(g_steal_pointer (&m_replay));
     g_clear_pointer (&m_session_name, g_free);
+    gtk_window_destroy (GTK_WINDOW (window));
 }
 
 
 static void
 test_keypress_from_recording (void)
 {
+    GtkWidget *window;
     const char *recording = getenv("IBUS_KEY_RECORDING");
 
     if (!register_ibus_engine ())
@@ -676,11 +682,12 @@ test_keypress_from_recording (void)
         return;
     }
 
-    create_window ();
+    window = create_window ();
     ibus_main ();
 
-    uinput_replay_device_destroy(m_replay);
+    uinput_replay_device_destroy(g_steal_pointer (&m_replay));
     g_clear_pointer (&m_session_name, g_free);
+    gtk_window_destroy (GTK_WINDOW (window));
 }
 
 int
