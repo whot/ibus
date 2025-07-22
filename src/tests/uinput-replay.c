@@ -332,10 +332,34 @@ uinput_replay_create_device(const char *recording, GError **error)
     return dev;
 }
 
+struct uinput_replay_device *
+uinput_replay_create_keyboard(GError **error)
+{
+    struct libevdev_uinput *uidev;
+    struct uinput_replay_device *dev;
+
+    if (!(uidev = ibus_uidev_new ())) {
+        /* FIXME: proper GError reporting, I guess */
+        return NULL;
+    }
+
+    dev = g_new0 (struct uinput_replay_device, 1);
+    dev->uidev = uidev;
+
+    return dev;
+}
+
 void
 uinput_replay_device_replay(struct uinput_replay_device *dev)
 {
     ibus_uidev_replay_with_yaml_data (dev->uidev, dev->contents);
+}
+
+void
+uinput_replay_device_event(struct uinput_replay_device *dev,
+                           const struct input_event *event)
+{
+    libevdev_uinput_write_event(dev->uidev, event->type, event->code, event->value);
 }
 
 void

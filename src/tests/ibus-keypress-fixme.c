@@ -6,11 +6,16 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include <linux/input-event-codes.h>
+#include <linux/input.h>
+
 #include "uinput-replay.h"
 
 #define GREEN "\033[0;32m"
 #define RED   "\033[0;31m"
 #define NC    "\033[0m"
+
+#define msleep(t) usleep((t) * 1000)
 
 typedef enum {
     TEST_COMMIT_TEXT,
@@ -36,8 +41,143 @@ static const gunichar test_results[][60] = {
    { 0 }
 };
 
+#define INPUT_EVENT(type_, code_, value_) { .type = type_, .code = code_, .value = value_, }
+static const struct input_event test_data[] = {
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 28),
+	INPUT_EVENT(EV_KEY, KEY_ENTER, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
 
-static const gchar *m_arg0;
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 30),
+	INPUT_EVENT(EV_KEY, KEY_A, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 30),
+	INPUT_EVENT(EV_KEY, KEY_A, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 51),
+	INPUT_EVENT(EV_KEY, KEY_COMMA, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 51),
+	INPUT_EVENT(EV_KEY, KEY_COMMA, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 48),
+	INPUT_EVENT(EV_KEY, KEY_B, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 48),
+	INPUT_EVENT(EV_KEY, KEY_B, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 52),
+	INPUT_EVENT(EV_KEY, KEY_DOT, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 52),
+	INPUT_EVENT(EV_KEY, KEY_DOT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 46),
+	INPUT_EVENT(EV_KEY, KEY_C, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 46),
+	INPUT_EVENT(EV_KEY, KEY_C, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 53),
+	INPUT_EVENT(EV_KEY, KEY_SLASH, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 53),
+	INPUT_EVENT(EV_KEY, KEY_SLASH, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 32),
+	INPUT_EVENT(EV_KEY, KEY_D, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 32),
+	INPUT_EVENT(EV_KEY, KEY_D, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 39),
+	INPUT_EVENT(EV_KEY, KEY_SEMICOLON, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 39),
+	INPUT_EVENT(EV_KEY, KEY_SEMICOLON, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 18),
+	INPUT_EVENT(EV_KEY, KEY_E, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 18),
+	INPUT_EVENT(EV_KEY, KEY_E, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 40),
+	INPUT_EVENT(EV_KEY, KEY_APOSTROPHE, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 40),
+	INPUT_EVENT(EV_KEY, KEY_APOSTROPHE, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 33),
+	INPUT_EVENT(EV_KEY, KEY_F, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 33),
+	INPUT_EVENT(EV_KEY, KEY_F, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 26),
+	INPUT_EVENT(EV_KEY, KEY_LEFTBRACE, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 26),
+	INPUT_EVENT(EV_KEY, KEY_LEFTBRACE, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 34),
+	INPUT_EVENT(EV_KEY, KEY_G, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 34),
+	INPUT_EVENT(EV_KEY, KEY_G, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 1),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 43),
+	INPUT_EVENT(EV_KEY, KEY_BACKSLASH, 1),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 42),
+	INPUT_EVENT(EV_KEY, KEY_LEFTSHIFT, 0),
+	INPUT_EVENT(EV_MSC, MSC_SCAN, 43),
+	INPUT_EVENT(EV_KEY, KEY_BACKSLASH, 0),
+	INPUT_EVENT(EV_SYN, SYN_REPORT, 0),
+};
+
 static gchar *m_session_name;
 static IBusBus *m_bus;
 static IBusEngine *m_engine;
@@ -312,7 +452,11 @@ set_engine_cb (GObject      *object,
     /* Because uinput doesn't take that long (for our recordings anyway) we can
      * simply create and run this here this here. */
     g_info("running uinput now");
-    uinput_replay_device_replay(m_replay);
+    for (size_t i = 0; i < G_N_ELEMENTS(test_data); i++) {
+        uinput_replay_device_event(m_replay, &test_data[i]);
+        if (test_data[i].type == EV_SYN)
+            msleep(2);
+    }
 #endif
 }
 
@@ -494,22 +638,10 @@ test_init (void)
 static void
 test_keypress (void)
 {
-    gchar *build_dir;
-    char *recording;
-
     if (!register_ibus_engine ())
         return;
 
-    g_assert (m_arg0);
-    build_dir = g_path_get_dirname (m_arg0);
-    if (g_str_has_suffix (build_dir, "/.libs"))
-        *(build_dir + strlen (build_dir) - 6) = '\0';
-
-    // FIXME: fix the lookup path
-    recording = g_build_filename (build_dir, "libinput-test.yml", NULL);
-    g_free (build_dir);
-    m_replay = uinput_replay_create_device(recording, NULL);
-    g_free(recording);
+    m_replay = uinput_replay_create_keyboard( NULL);
 
     if (!m_replay) {
         g_warning ("Failed to create uinput device");
@@ -531,8 +663,6 @@ main (int argc, char *argv[])
     GError *error = NULL;
 
     setlocale (LC_ALL, "");
-
-    m_arg0 = argv[0];
 
     /* Avoid a warning of "AT-SPI: Could not obtain desktop path or name"
      * with gtk_main().
