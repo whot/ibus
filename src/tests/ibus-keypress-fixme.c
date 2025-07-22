@@ -13,8 +13,6 @@
 #define NC    "\033[0m"
 
 typedef enum {
-    TEST_START_KEYPRESS,
-    TEST_WAIT_START_KEYPRESS,
     TEST_END_KEYPRESS,
     TEST_PROCESS_KEY_EVENT,
     TEST_COMMIT_TEXT,
@@ -41,10 +39,8 @@ static const gunichar test_results[][60] = {
 };
 
 
-static gchar *m_tmpfile_start;
 static gchar *m_tmpfile_end;
 static const gchar *m_arg0;
-static pid_t m_pid;
 static gchar *m_session_name;
 static IBusBus *m_bus;
 static IBusEngine *m_engine;
@@ -96,40 +92,6 @@ idle_cb (gpointer user_data)
 
     g_assert (data);
     switch (data->category) {
-    case TEST_START_KEYPRESS:
-        if (g_access (m_tmpfile_start, 0) != -1) {
-            data->idle_id = 0;
-            n = 0;
-            g_unlink (m_tmpfile_start);
-            g_main_loop_quit (m_loop);
-            return G_SOURCE_REMOVE;
-        }
-        if (n++ < 600) {
-            if (!(n % 30))
-                g_test_message ("Waiting for set_engine %dth times", n);
-            return G_SOURCE_CONTINUE;
-        }
-        g_test_fail_printf ("set_engine is timeout.");
-        g_main_loop_quit (m_loop);
-        break;
-    case TEST_WAIT_START_KEYPRESS:
-        if (g_access (m_tmpfile_start, 0) == -1) {
-            data->idle_id = 0;
-            n = 0;
-            g_main_loop_quit (m_loop);
-            fprintf (stderr, "Started keypress\n");
-            return G_SOURCE_REMOVE;
-        }
-        if (n++ < 30) {
-            if (!(n % 5))
-                g_test_message ("Waiting for starting keypress %dth times", n);
-                //fprintf (stderr, "Waiting for starting keypress %dth times\n", n);
-            return G_SOURCE_CONTINUE;
-        }
-        g_test_fail_printf ("Starting keypress is timeout.");
-        //fprintf (stderr, "Starting keypress is timeout.\n");
-        g_main_loop_quit (m_loop);
-        break;
     case TEST_END_KEYPRESS:
         if (g_access (m_tmpfile_end, 0) != -1) {
             data->idle_id = 0;
@@ -320,8 +282,6 @@ window_destroy_cb (void)
 static void
 exec_keypress (void)
 {
-    static TestIdleData data = { .category = TEST_START_KEYPRESS,
-                                 .idle_id = 0 };
     gchar *build_dir;
     gchar *keypress_path = NULL;
     gchar *standard_output = NULL;
@@ -330,17 +290,6 @@ exec_keypress (void)
     GError *error = NULL;
     int fd;
 
-#if 0
-    /* We no longer need the idle handling because we're now
-     * effectively single-threaded */
-    m_loop = g_main_loop_new (NULL, TRUE);
-    data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
-    g_main_loop_run (m_loop);
-    g_main_loop_unref (m_loop);
-    if (data.idle_id != 0)
-        return;
-
-#endif
     g_assert (m_arg0);
     build_dir = g_path_get_dirname (m_arg0);
     if (g_str_has_suffix (build_dir, "/.libs"))
@@ -405,9 +354,6 @@ set_engine_cb (GObject      *object,
     //Display *xdisplay = NULL;
     //int i, j;
     int i;
-    int fd;
-    int wstatus = 0;
-    pid_t wpid;
 
     if (!ibus_bus_set_global_engine_async_finish (bus, res, &error)) {
         g_critical ("set engine failed: %s", error->message);
@@ -456,22 +402,6 @@ set_engine_cb (GObject      *object,
     g_info("running uinput now");
     exec_keypress();
 
-
-    /* Note: m_tmpfile_start can be removed since we're now effectively
-     * single-threaded for what this was guarding against */
-#if 0
-    fd = g_creat (m_tmpfile_start, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    g_close (fd, &error);
-#endif
-
-    data.category = TEST_WAIT_START_KEYPRESS;
-    data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
-    g_main_loop_run (m_loop);
-    if (data.idle_id != 0)
-        return;
-    errno = 0;
-    if ((wpid = waitpid (m_pid, &wstatus, 0)) == -1)
-        g_test_fail_printf ("keypress is failed: %s", g_strerror (errno));
     data.category = TEST_END_KEYPRESS;
     data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
     g_main_loop_run (m_loop);
@@ -683,17 +613,6 @@ main (int argc, char *argv[])
     GError *error = NULL;
 
     setlocale (LC_ALL, "");
-
-    m_tmpfile_start = g_strdup ("/tmp/ibus-keypress_start_XXXXXX.log");
-    errno = 0;
-    if ((fd = g_mkstemp (m_tmpfile_start)) == -1) {
-        /* g_warning() before g_test_init() */
-        g_warning ("mkstemp is failed: %s", g_strerror (errno));
-        g_unlink (m_tmpfile_start);
-        exit (EXIT_FAILURE);
-    }
-    g_close (fd, &error);
-    g_unlink (m_tmpfile_start);
 
     m_tmpfile_end = g_strdup ("/tmp/ibus-keypress_end_XXXXXX.log");
     errno = 0;
