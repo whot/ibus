@@ -559,12 +559,12 @@ window_inserted_text_cb (GtkEntryBuffer *buffer,
                             code);
     } else if (test_results[i][j]) {
         return;
+    } else {
+        g_print (GREEN "PASS" NC " ");
+        for (k = 0; k < j; k++)
+            g_print ("%lc(%X) ", test_results[i][k], test_results[i][k]);
+        g_print ("\n");
     }
-
-    g_print (GREEN "PASS" NC " ");
-    for (k = 0; k < j; k++)
-        g_print ("%lc(%X) ", test_results[i][k], test_results[i][k]);
-    g_print ("\n");
 
     ++i;
     j = 0;
