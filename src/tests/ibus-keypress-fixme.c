@@ -330,6 +330,9 @@ exec_keypress (void)
     GError *error = NULL;
     int fd;
 
+#if 0
+    /* We no longer need the idle handling because we're now
+     * effectively single-threaded */
     m_loop = g_main_loop_new (NULL, TRUE);
     data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
     g_main_loop_run (m_loop);
@@ -337,6 +340,7 @@ exec_keypress (void)
     if (data.idle_id != 0)
         return;
 
+#endif
     g_assert (m_arg0);
     build_dir = g_path_get_dirname (m_arg0);
     if (g_str_has_suffix (build_dir, "/.libs"))
@@ -381,7 +385,6 @@ exec_keypress (void)
 
     fd = g_creat (m_tmpfile_end, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     g_close (fd, &error);
-    exit (EXIT_SUCCESS);
 }
 
 
@@ -447,8 +450,19 @@ set_engine_cb (GObject      *object,
 
     g_timeout_add_seconds (10, finit, NULL);
 #else
+
+    /* Because uinput doesn't take that long (for our recordings anyway) we can
+     * simply create and run this here this here. */
+    g_info("running uinput now");
+    exec_keypress();
+
+
+    /* Note: m_tmpfile_start can be removed since we're now effectively
+     * single-threaded for what this was guarding against */
+#if 0
     fd = g_creat (m_tmpfile_start, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     g_close (fd, &error);
+#endif
 
     data.category = TEST_WAIT_START_KEYPRESS;
     data.idle_id = g_timeout_add_seconds (1, idle_cb, &data);
@@ -693,8 +707,6 @@ main (int argc, char *argv[])
     g_unlink (m_tmpfile_end);
 
     m_arg0 = argv[0];
-    if (!(m_pid = fork ()))
-        exec_keypress ();
 
     /* Avoid a warning of "AT-SPI: Could not obtain desktop path or name"
      * with gtk_main().
