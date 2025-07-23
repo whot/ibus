@@ -287,6 +287,17 @@ engine_focus_out_cb (IBusEngine *engine,
     g_clear_pointer (&m_engine_is_focused, g_free);
 }
 
+static gboolean
+engine_process_key_event_cb (IBusEngine *engine,
+                             guint       keyval,
+                             guint       keycode,
+                             guint       state,
+                             gpointer    user_data)
+{
+    g_test_message ("engine_process_key_event_cb keyval:%X keycode:%u state:%x",
+                    keyval, keycode, state);
+    return FALSE;
+}
 
 static IBusEngine *
 create_engine_cb (IBusFactory *factory,
@@ -326,6 +337,9 @@ create_engine_cb (IBusFactory *factory,
     g_signal_connect (m_engine, "focus-out",
 #endif
                       G_CALLBACK (engine_focus_out_cb), NULL);
+
+    g_signal_connect (m_engine, "process-key-event",
+                      G_CALLBACK (engine_process_key_event_cb), NULL);
 
     return m_engine;
 }
