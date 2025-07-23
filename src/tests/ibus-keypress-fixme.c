@@ -650,10 +650,30 @@ test_init (void)
     g_main_loop_unref (loop);
 }
 
+typedef struct {
+    guint source;
+    GtkWidget *window;
+} WindowDestroyData;
+
+static gboolean
+destroy_window (gpointer user_data)
+{
+    WindowDestroyData *data = user_data;
+
+    data->source = 0;
+
+    g_info("Destroying window after timeout");
+    gtk_window_destroy (GTK_WINDOW (data->window));
+
+    data->window = NULL;
+
+    return G_SOURCE_REMOVE;
+}
+
 static void
 test_keypress (void)
 {
-    GtkWidget *window;
+    WindowDestroyData destroy_data;
 
     if (!register_ibus_engine ())
         return;
@@ -665,12 +685,17 @@ test_keypress (void)
         return;
     }
 
-    window = create_window ();
+    destroy_data.window = create_window ();
+    destroy_data.source = g_timeout_add_seconds (5, destroy_window, &destroy_data);
+
     ibus_main ();
 
     uinput_replay_device_destroy(g_steal_pointer (&m_replay));
     g_clear_pointer (&m_session_name, g_free);
-    gtk_window_destroy (GTK_WINDOW (window));
+    if (destroy_data.source)
+	g_source_remove (destroy_data.source);
+    if (destroy_data.window)
+	gtk_window_destroy (GTK_WINDOW (destroy_data.window));
 }
 
 
