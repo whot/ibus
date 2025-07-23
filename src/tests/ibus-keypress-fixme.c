@@ -28,11 +28,6 @@ typedef struct _TestIdleData {
     guint            idle_id;
 } TestIdleData;
 
-typedef struct _KeyData {
-    guint keyval;
-    guint modifiers;
-} KeyData;
-
 static const gunichar test_results[][60] = {
    { 'a', '<', 'b', '>', 'c', '?', 'd', ':', 'e', '"', 'f', '{', 'g', '|', 0 },
 #if 0
